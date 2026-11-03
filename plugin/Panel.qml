@@ -204,7 +204,7 @@ Panel {
 
           // Section 1: Add or Quick Check Form
           PanelSectionHeader {
-            title: "Add or Quick Check Website"
+            text: "Add or Quick Check Website"
             foreground: root.fg
             fontFamily: root.fontFamily
           }
@@ -309,6 +309,7 @@ Panel {
 
               Row {
                 width: parent.width
+                spacing: Style.space(10)
                 Text {
                   textFormat: Text.PlainText
                   text: root.checkResult ? Model.statusBadge(root.checkResult.status, root.checkResult.status_code) : ""
@@ -317,7 +318,6 @@ Panel {
                   font.pixelSize: Style.font.body
                   font.bold: true
                 }
-                Item { width: Style.space(10); height: 1 }
                 Text {
                   textFormat: Text.PlainText
                   text: root.checkResult ? Model.formatLatency(root.checkResult.latency_ms) : ""
@@ -325,7 +325,6 @@ Panel {
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.body
                 }
-                Item { width: 1; height: 1; Layout.fillWidth: true }
               }
 
               Text {
@@ -394,7 +393,7 @@ Panel {
 
           // Section 2: Watchlist Header
           PanelSectionHeader {
-            title: "Watchlist (" + root.sites.length + ")"
+            text: "Watchlist (" + root.sites.length + ")"
             foreground: root.fg
             fontFamily: root.fontFamily
           }
