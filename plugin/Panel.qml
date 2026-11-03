@@ -24,8 +24,15 @@ Panel {
   property bool adding: false
   property bool refreshing: false
   property string checkingSiteId: ""
-  property bool cliInstalled: true
+  property bool cliInstalled: false
   property bool cliChecking: false
+
+  onOpenedChanged: {
+    if (root.opened) {
+      root.checkCli()
+      root.refresh()
+    }
+  }
 
   function checkCli() {
     root.cliChecking = true
@@ -37,8 +44,7 @@ Panel {
   }
 
   function openSite(url) {
-    openProc.command = ["xdg-open", url]
-    openProc.running = true
+    if (url) Qt.openUrlExternally(url)
   }
 
   function removeSite(targetId) {
@@ -55,22 +61,26 @@ Panel {
 
   function checkSingleSite(siteId, url) {
     root.checkingSiteId = siteId
-    singleCheckProc.command = ["webstat", "check", "--", url]
+    singleCheckProc.command = ["webstat", "check", "--id", siteId]
     singleCheckProc.running = true
+  }
+
+  function addSite(raw) {
+    if (!raw) return
+    root.adding = true
+    var args = ["webstat", "add", "--stdin"]
+    if (autoOpenSwitch.checked) args.push("--open")
+    if (keepWatchingSwitch.checked) args.push("--keep")
+    addProc.pendingInput = raw
+    addProc.command = args
+    addProc.running = true
   }
 
   function addCurrentUrl() {
     var raw = String(urlField.text || "").trim()
     if (!raw) return
-    root.adding = true
-    var args = ["webstat", "add"]
-    if (autoOpenSwitch.checked) args.push("--open")
-    if (keepWatchingSwitch.checked) args.push("--keep")
-    args.push("--")
-    args.push(raw)
-    addProc.command = args
-    addProc.running = true
     urlField.text = ""
+    addSite(raw)
   }
 
   function checkCurrentUrl() {
@@ -78,7 +88,8 @@ Panel {
     if (!raw) return
     root.checking = true
     root.checkResult = null
-    checkProc.command = ["webstat", "check", "--json", "--", raw]
+    checkProc.pendingInput = raw
+    checkProc.command = ["webstat", "check", "--json", "--stdin"]
     checkProc.running = true
   }
 
@@ -116,8 +127,6 @@ Panel {
     }
   }
 
-  Process { id: openProc }
-
   Process {
     id: removeProc
     onExited: root.refresh()
@@ -125,6 +134,14 @@ Panel {
 
   Process {
     id: addProc
+    property string pendingInput: ""
+    stdinEnabled: true
+    onStarted: {
+      if (pendingInput) {
+        write(pendingInput + "\n")
+        pendingInput = ""
+      }
+    }
     onExited: {
       root.adding = false
       root.refresh()
@@ -141,6 +158,14 @@ Panel {
 
   Process {
     id: checkProc
+    property string pendingInput: ""
+    stdinEnabled: true
+    onStarted: {
+      if (pendingInput) {
+        write(pendingInput + "\n")
+        pendingInput = ""
+      }
+    }
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -280,7 +305,7 @@ Panel {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 textFormat: Text.PlainText
-                text: "Install the background engine to start monitoring sites from this widget:\n\n  • pipx install webstat  (or pip install webstat)\n  • yay -S webstat-git  (AUR)"
+                text: "Install the background engine to start monitoring sites from this widget:\n\n  • pipx install webstat  (or pip install webstat)"
                 color: root.fg
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -476,14 +501,10 @@ Panel {
                   fontFamily: root.fontFamily
                   bordered: true
                   onClicked: {
-                      var args = ["webstat", "add"]
-                      if (autoOpenSwitch.checked) args.push("--open")
-                      if (keepWatchingSwitch.checked) args.push("--keep")
-                      args.push("--")
-                      args.push(root.checkResult.url)
-                      addProc.command = args
-                      addProc.running = true
+                    if (root.checkResult && root.checkResult.url) {
+                      root.addSite(root.checkResult.url)
                       root.checkResult = null
+                    }
                   }
                 }
                 Button {

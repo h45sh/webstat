@@ -30,9 +30,6 @@ pipx install webstat
 # or standard pip:
 pip install webstat
 
-# Arch Linux / Omarchy (AUR):
-yay -S webstat-git
-
 # Or install from source:
 git clone https://github.com/h45sh/webstat.git
 cd webstat
