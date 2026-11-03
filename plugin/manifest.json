@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "h45sh.webstat",
+  "name": "Webstat",
+  "version": "1.0.0",
+  "author": "h45sh",
+  "license": "MIT",
+  "description": "Website availability monitor and recovery reminder",
+  "kinds": [
+    "bar-widget",
+    "panel"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Webstat",
+    "description": "Live website status and recovery reminder",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

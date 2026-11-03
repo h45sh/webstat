@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "webstat"
+version = "0.1.0"
+description = "Fast website status checker, recovery watcher, and desktop reminder"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "h45sh" }
+]
+license = "MIT"
+dependencies = [
+    "httpx>=0.25.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+webstat = "webstat.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
