@@ -20,8 +20,8 @@ jobs:
       - name: Install build dependencies
         run: python3 -m pip install --upgrade pip build
 
-      - name: Build sdist and wheel
-        run: python3 -m build
+      - name: Build wheel
+        run: python3 -m build --wheel
 
       - name: Store distribution artifacts
         uses: actions/upload-artifact@v4
