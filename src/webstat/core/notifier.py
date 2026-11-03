@@ -9,6 +9,7 @@ import subprocess
 import sys
 from typing import Any
 
+from webstat.core.browser import open_in_browser
 from webstat.core.models import CheckResult, MonitoredSite
 
 
@@ -96,24 +97,12 @@ class FreeDesktopNotifier(BaseNotifier):
 
 
 class BrowserLauncher(BaseNotifier):
-    """Directly opens the default browser using xdg-open."""
+    """Directly opens the default browser safely without process-argument leakage."""
 
     def notify_up(self, site: MonitoredSite, result: CheckResult) -> bool:
         if not site.auto_open:
             return False
-        xdg_bin = shutil.which("xdg-open")
-        if not xdg_bin:
-            return False
-        try:
-            subprocess.Popen(
-                [xdg_bin, site.url],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-            return True
-        except Exception:
-            return False
+        return open_in_browser(site.url, site.display_name)
 
 
 class TerminalBellNotifier(BaseNotifier):

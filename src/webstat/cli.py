@@ -457,9 +457,13 @@ def open_command(
             console.print(f"[bold red]Error:[/bold red] Monitored site '{lookup}' not found.")
             raise typer.Exit(code=1)
 
-    import webbrowser
-    webbrowser.open(open_url)
-    console.print(f"[bold green]Opened:[/bold green] {get_display_name(open_url)}")
+    from webstat.core.browser import open_in_browser
+
+    display_name = site.display_name if site else get_display_name(open_url)
+    if not open_in_browser(open_url, display_name):
+        console.print(f"[bold red]Error:[/bold red] Failed to open browser for '{display_name}'.")
+        raise typer.Exit(code=1)
+    console.print(f"[bold green]Opened:[/bold green] {display_name}")
 
 
 KNOWN_COMMANDS = {"check", "watch", "add", "list", "remove", "clear", "refresh", "daemon", "open"}

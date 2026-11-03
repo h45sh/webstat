@@ -163,9 +163,77 @@ def test_cli_stdin_and_id_options(tmp_path):
             assert res_check_stdin.exit_code == 0
             assert '"status": "ONLINE"' in res_check_stdin.output
 
-        # 4. Open site via --id
-        with patch("webbrowser.open") as mock_browser_open:
+        # 4. Open site via --id (verifying open_in_browser is called)
+        with patch("webstat.core.browser.open_in_browser") as mock_open:
+            mock_open.return_value = True
             res_open = runner.invoke(app, ["open", "--id", site.id])
             assert res_open.exit_code == 0
-            assert mock_browser_open.called
-            assert mock_browser_open.call_args[0][0] == site.url
+            assert mock_open.called
+            assert mock_open.call_args[0][0] == site.url
+
+
+def test_browser_launcher_never_exposes_credentials_in_args(tmp_path):
+    """Verify that BrowserLauncher and open_in_browser write a private 0600 trampoline
+    HTML file and pass ONLY the file path to xdg-open/gio without leaking credentials
+    or query tokens into process cmdline arguments.
+    """
+    from webstat.core.browser import open_in_browser
+    from webstat.core.notifier import BrowserLauncher
+
+    sensitive_url = "https://user:very_secret_pass@internal.portal:9000/auth?token=confidential_jwt_token"
+    site = MonitoredSite(
+        id="internal-portal-1234",
+        url=sensitive_url,
+        display_name="internal.portal:9000",
+        raw_input=sensitive_url,
+        auto_open=True,
+    )
+    result = CheckResult(
+        url=sensitive_url,
+        status=SiteStatus.ONLINE,
+        status_code=200,
+        latency_ms=25.0,
+    )
+
+    launcher = BrowserLauncher()
+
+    with patch("shutil.which", return_value="/usr/bin/xdg-open"), \
+         patch("subprocess.Popen") as mock_popen:
+
+        success = launcher.notify_up(site, result)
+        assert success is True
+        assert mock_popen.called
+
+        cmd_args = mock_popen.call_args[0][0]
+        assert cmd_args[0] == "/usr/bin/xdg-open"
+        assert len(cmd_args) == 2
+
+        trampoline_path = cmd_args[1]
+
+        # Verify no credentials or query tokens appear in process arguments
+        for arg in cmd_args:
+            assert "very_secret_pass" not in arg
+            assert "confidential_jwt_token" not in arg
+            assert "user:very_secret_pass" not in arg
+            assert sensitive_url not in arg
+
+        # Verify trampoline file exists with private permissions 0600
+        import os
+        import stat
+
+        assert os.path.exists(trampoline_path)
+        file_mode = os.stat(trampoline_path).st_mode & 0o777
+        assert file_mode == 0o600
+
+        # Verify trampoline contents contain safe client-side redirect
+        with open(trampoline_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            assert sensitive_url in content
+            assert '<meta http-equiv="refresh"' in content
+            assert "window.location.replace" in content
+
+        # Clean up test file
+        try:
+            os.unlink(trampoline_path)
+        except OSError:
+            pass
