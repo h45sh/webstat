@@ -43,7 +43,7 @@ class OmarchyNotifier(BaseNotifier):
         headline = _clean_notification_text(f"Site is UP: {site.display_name}")
         latency_str = f" in {result.latency_ms}ms" if result.latency_ms else ""
         code_str = f"{result.status_code} " if result.status_code else ""
-        desc = _clean_notification_text(f"{site.url} is back online ({code_str}OK{latency_str}). Click to open.")
+        desc = _clean_notification_text(f"{site.display_name} is back online ({code_str}OK{latency_str}). Click to open.")
 
         cmd = [
             self.omarchy_bin,
@@ -58,8 +58,10 @@ class OmarchyNotifier(BaseNotifier):
             headline,
             desc,
             "--exec",
-            "xdg-open",
-            site.url,
+            "webstat",
+            "open",
+            "--id",
+            site.id,
         ]
 
         try:
@@ -83,7 +85,7 @@ class FreeDesktopNotifier(BaseNotifier):
             return False
 
         headline = _clean_notification_text(f"Site is UP: {site.display_name}")
-        desc = _clean_notification_text(f"{site.url} is back online!")
+        desc = _clean_notification_text(f"{site.display_name} is back online!")
         cmd = [self.notify_bin, "-a", "webstat", "-i", "network-idle", headline, desc]
 
         try:

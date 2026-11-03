@@ -45,33 +45,68 @@ class HttpChecker(BaseChecker):
         try:
             async with httpx.AsyncClient(
                 timeout=self.timeout,
-                follow_redirects=True,
-                max_redirects=10,
+                follow_redirects=False,
                 headers=headers,
                 verify=True,
             ) as client:
-                # Try fast HEAD probe first to avoid downloading large bodies
-                status_code: int
-                used_stream = False
-                try:
-                    head_response = await client.head(normalized)
-                    if head_response.status_code in (405, 501):
-                        used_stream = True
-                    else:
-                        status_code = head_response.status_code
-                        if head_response.history:
-                            for resp in head_response.history:
-                                redirect_chain.append(f"{resp.status_code} -> {resp.url}")
-                except (httpx.RequestError, httpx.HTTPStatusError):
-                    used_stream = True
+                current_url = normalized
+                max_redirects = 10
+                redirect_count = 0
+                status_code: int = 0
 
-                if used_stream:
-                    # Stream GET to avoid buffering unbounded response bodies into RAM
-                    async with client.stream("GET", normalized) as stream_resp:
-                        status_code = stream_resp.status_code
-                        if stream_resp.history:
-                            for resp in stream_resp.history:
-                                redirect_chain.append(f"{resp.status_code} -> {resp.url}")
+                while True:
+                    response: httpx.Response | None = None
+                    try:
+                        # Try fast HEAD probe first to avoid downloading large bodies
+                        head_req = client.build_request("HEAD", current_url)
+                        try:
+                            head_resp = await client.send(head_req, stream=True)
+                            if head_resp.status_code in (405, 501):
+                                await head_resp.aclose()
+                                get_req = client.build_request("GET", current_url)
+                                response = await client.send(get_req, stream=True)
+                            else:
+                                response = head_resp
+                        except (httpx.RequestError, httpx.HTTPStatusError):
+                            # Server failed or rejected HEAD probe; fallback to streaming GET
+                            get_req = client.build_request("GET", current_url)
+                            response = await client.send(get_req, stream=True)
+
+                        status_code = response.status_code
+
+                        # Check if response is a redirect (3xx with Location header)
+                        if response.is_redirect and "location" in response.headers:
+                            if redirect_count >= max_redirects:
+                                await response.aclose()
+                                raise httpx.TooManyRedirects(
+                                    f"Exceeded maximum allowed redirects ({max_redirects})"
+                                )
+
+                            location = response.headers["location"]
+                            next_url = str(response.url.join(location))
+
+                            parsed_next = urlparse(next_url)
+                            if parsed_next.scheme not in ("http", "https"):
+                                await response.aclose()
+                                raise httpx.RequestError(
+                                    f"Unsupported redirect scheme: {parsed_next.scheme}"
+                                )
+
+                            redirect_chain.append(f"{response.status_code} -> {next_url}")
+                            # Immediately close the redirect response WITHOUT reading or buffering body into RAM
+                            await response.aclose()
+
+                            redirect_count += 1
+                            current_url = next_url
+                            continue
+                        else:
+                            # Final response reached: immediately close without consuming body
+                            await response.aclose()
+                            break
+                    except Exception:
+                        if response is not None and not response.is_closed:
+                            await response.aclose()
+                        raise
 
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
 
@@ -127,6 +162,15 @@ class HttpChecker(BaseChecker):
                 status=SiteStatus.UNREACHABLE,
                 latency_ms=elapsed_ms,
                 error_message=msg,
+            )
+        except httpx.TooManyRedirects as e:
+            elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
+            return CheckResult(
+                url=normalized,
+                status=SiteStatus.UNREACHABLE,
+                latency_ms=elapsed_ms,
+                redirect_chain=redirect_chain,
+                error_message=f"Too many redirects: {e}",
             )
         except httpx.HTTPError as e:
             elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)

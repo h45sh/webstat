@@ -1,3 +1,3 @@
 """webstat: website availability monitor and desktop reminder."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.3"

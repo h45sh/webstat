@@ -33,7 +33,9 @@ console = Console()
 
 @app.command(name="check")
 def check_command(
-    url: str = typer.Argument(..., help="Website URL or domain name (e.g. github.com)"),
+    url: Optional[str] = typer.Argument(None, help="Website URL or domain name (e.g. github.com)"),
+    site_id: Optional[str] = typer.Option(None, "--id", help="Check an existing monitored site by ID"),
+    use_stdin: bool = typer.Option(False, "--stdin", help="Read target URL or site ID from standard input"),
     watch: bool = typer.Option(
         False,
         "--watch",
@@ -55,8 +57,30 @@ def check_command(
         console.print("[bold red]Error:[/bold red] Timeout must be greater than 0.")
         raise typer.Exit(code=1)
 
+    store = SiteStore()
+    target_url: str | None = None
+    target_site: MonitoredSite | None = None
+
+    if site_id:
+        target_site = store.get_by_id_or_url(site_id)
+        if not target_site:
+            console.print(f"[bold red]Error:[/bold red] Monitored site ID '{site_id}' not found.")
+            raise typer.Exit(code=1)
+        target_url = target_site.url
+    elif use_stdin or url == "-":
+        line = sys.stdin.readline()
+        if not line:
+            console.print("[bold red]Error:[/bold red] No URL received on standard input.")
+            raise typer.Exit(code=1)
+        target_url = line.strip()
+    elif url:
+        target_url = url
+    else:
+        console.print("[bold red]Error:[/bold red] You must provide a URL, --id, or --stdin.")
+        raise typer.Exit(code=1)
+
     try:
-        normalized = normalize_url(url)
+        normalized = normalize_url(target_url)
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)
@@ -67,8 +91,7 @@ def check_command(
         result = asyncio.run(checker.check(normalized))
 
     # Automatically update store if site is in watchlist
-    store = SiteStore()
-    site = store.get_by_id_or_url(normalized)
+    site = target_site or store.get_by_id_or_url(normalized)
     if site:
         site.status = result.status
         site.status_code = result.status_code
@@ -115,15 +138,15 @@ def check_command(
 
     if result.is_up:
         if open_browser:
-            import subprocess
-            subprocess.Popen(["xdg-open", normalized], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            import webbrowser
+            webbrowser.open(normalized)
         return
 
     # Site is down or non-positive
     if watch:
         console.print("\n[yellow]Site is not responding positively. Entering watch mode...[/yellow]")
         run_watch_loop(
-            urls=[url],
+            urls=[normalized],
             auto_open=open_browser,
             poll_interval=5.0,
             keep_watching=False,
@@ -247,7 +270,8 @@ def run_watch_loop(
 
 @app.command(name="add")
 def add_command(
-    url: str = typer.Argument(..., help="Website URL to add to background watchlist"),
+    url: Optional[str] = typer.Argument(None, help="Website URL to add to background watchlist"),
+    use_stdin: bool = typer.Option(False, "--stdin", help="Read website URL from standard input"),
     open_browser: bool = typer.Option(
         False,
         "--open",
@@ -262,10 +286,23 @@ def add_command(
     ),
 ) -> None:
     """Add a website to the persistent background monitoring watchlist."""
+    target_url: str | None = None
+    if use_stdin or url == "-":
+        line = sys.stdin.readline()
+        if not line:
+            console.print("[bold red]Error:[/bold red] No URL received on standard input.")
+            raise typer.Exit(code=1)
+        target_url = line.strip()
+    elif url:
+        target_url = url
+    else:
+        console.print("[bold red]Error:[/bold red] You must provide a URL or --stdin.")
+        raise typer.Exit(code=1)
+
     store = SiteStore()
     try:
         site = store.add(
-            raw_url=url,
+            raw_url=target_url,
             auto_open=open_browser,
             notify_on_up=True,
             keep_watching=keep,
@@ -387,7 +424,45 @@ def daemon_command(
         console.print("\n[yellow]webstat daemon stopped.[/yellow]")
 
 
-KNOWN_COMMANDS = {"check", "watch", "add", "list", "remove", "clear", "refresh", "daemon"}
+@app.command(name="open")
+def open_command(
+    target: Optional[str] = typer.Argument(None, help="Site ID, domain, or URL to open"),
+    site_id: Optional[str] = typer.Option(None, "--id", help="Site ID to open from watchlist"),
+    use_stdin: bool = typer.Option(False, "--stdin", help="Read site ID or URL from standard input"),
+) -> None:
+    """Open a monitored site in the default web browser."""
+    store = SiteStore()
+    lookup = None
+    if site_id:
+        lookup = site_id
+    elif use_stdin or target == "-":
+        line = sys.stdin.readline()
+        if not line:
+            console.print("[bold red]Error:[/bold red] No input received on standard input.")
+            raise typer.Exit(code=1)
+        lookup = line.strip()
+    elif target:
+        lookup = target
+    else:
+        console.print("[bold red]Error:[/bold red] Must provide a target, --id, or --stdin.")
+        raise typer.Exit(code=1)
+
+    site = store.get_by_id_or_url(lookup)
+    open_url = site.url if site else None
+
+    if not open_url:
+        try:
+            open_url = normalize_url(lookup)
+        except Exception:
+            console.print(f"[bold red]Error:[/bold red] Monitored site '{lookup}' not found.")
+            raise typer.Exit(code=1)
+
+    import webbrowser
+    webbrowser.open(open_url)
+    console.print(f"[bold green]Opened:[/bold green] {get_display_name(open_url)}")
+
+
+KNOWN_COMMANDS = {"check", "watch", "add", "list", "remove", "clear", "refresh", "daemon", "open"}
 
 
 @app.callback()
