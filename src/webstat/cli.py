@@ -61,6 +61,21 @@ def check_command(
     with console.status(f"[cyan]Checking[/cyan] {normalized}...", spinner="dots"):
         result = asyncio.run(checker.check(normalized))
 
+    # Automatically update store if site is in watchlist
+    store = SiteStore()
+    site = store.get_by_id_or_url(normalized)
+    if site:
+        site.status = result.status
+        site.status_code = result.status_code
+        site.latency_ms = result.latency_ms
+        site.last_checked = result.timestamp
+        site.last_error = result.error_message
+        if result.is_up:
+            site.retries = 0
+        else:
+            site.retries += 1
+        store.update_site(site)
+
     if json_output:
         print(json.dumps(result.to_dict(), indent=2))
         return
@@ -246,8 +261,17 @@ def add_command(
             notify_on_up=True,
             keep_watching=keep,
         )
-        console.print(f"[bold green]Added:[/bold green] {site.display_name} ({site.url}) to watchlist.")
-        console.print("The Omarchy top bar and background worker will track its status.")
+        # Perform fast initial health check so numbers appear immediately
+        checker = HttpChecker(timeout=4.0)
+        result = asyncio.run(checker.check(site.url))
+        site.status = result.status
+        site.status_code = result.status_code
+        site.latency_ms = result.latency_ms
+        site.last_checked = result.timestamp
+        site.last_error = result.error_message
+        store.update_site(site)
+
+        console.print(f"[bold green]Added:[/bold green] {site.display_name} ({site.url}) [{site.status.value}]")
     except Exception as e:
         console.print(f"[bold red]Failed to add site:[/bold red] {e}")
         raise typer.Exit(code=1)

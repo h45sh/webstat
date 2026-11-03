@@ -26,9 +26,10 @@ class BaseChecker(abc.ABC):
 class HttpChecker(BaseChecker):
     """Standard HTTP/HTTPS checker with latency measurement and error categorization."""
 
-    def __init__(self, timeout: float = 8.0, user_agent: str = "webstat/0.1.0"):
+    def __init__(self, timeout: float = 5.0, user_agent: str = "webstat/0.1.0", check_ssl: bool = False):
         self.timeout = timeout
         self.user_agent = user_agent
+        self.check_ssl = check_ssl
 
     async def check(self, url: str) -> CheckResult:
         normalized = normalize_url(url)
@@ -47,7 +48,14 @@ class HttpChecker(BaseChecker):
                 headers=headers,
                 verify=True,
             ) as client:
-                response = await client.get(normalized)
+                # Try fast HEAD probe first to avoid downloading large bodies
+                try:
+                    response = await client.head(normalized)
+                    if response.status_code in (405, 501):
+                        response = await client.get(normalized)
+                except (httpx.RequestError, httpx.HTTPStatusError):
+                    response = await client.get(normalized)
+
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
 
                 if response.history:
@@ -65,7 +73,9 @@ class HttpChecker(BaseChecker):
                 else:
                     status = SiteStatus.SERVER_ERROR
 
-                ssl_days = self._check_ssl_expiry(normalized) if normalized.startswith("https://") else None
+                ssl_days = None
+                if self.check_ssl and normalized.startswith("https://"):
+                    ssl_days = self._check_ssl_expiry(normalized)
 
                 return CheckResult(
                     url=normalized,

@@ -21,7 +21,9 @@ Panel {
 
   property var checkResult: null
   property bool checking: false
+  property bool adding: false
   property bool refreshing: false
+  property string checkingSiteId: ""
 
   function refresh() {
     if (hostWidget && hostWidget.refresh) hostWidget.refresh()
@@ -32,12 +34,20 @@ Panel {
     openProc.running = true
   }
 
-  function removeSite(target) {
-    removeProc.command = ["webstat", "remove", target]
+  function removeSite(targetId) {
+    // Optimistic UI: remove immediately from view without waiting
+    var filtered = []
+    for (var i = 0; i < root.sites.length; i++) {
+      if (root.sites[i].id !== targetId) filtered.push(root.sites[i])
+    }
+    if (hostWidget) hostWidget.sites = filtered
+
+    removeProc.command = ["webstat", "remove", targetId]
     removeProc.running = true
   }
 
-  function checkSingleSite(url) {
+  function checkSingleSite(siteId, url) {
+    root.checkingSiteId = siteId
     singleCheckProc.command = ["webstat", "check", url]
     singleCheckProc.running = true
   }
@@ -45,6 +55,7 @@ Panel {
   function addCurrentUrl() {
     var raw = String(urlField.text || "").trim()
     if (!raw) return
+    root.adding = true
     var args = ["webstat", "add", raw]
     if (autoOpenSwitch.checked) args.push("--open")
     if (keepWatchingSwitch.checked) args.push("--keep")
@@ -68,6 +79,8 @@ Panel {
   }
 
   function clearWatchlist() {
+    if (hostWidget) hostWidget.sites = []
+    root.checkResult = null
     clearProc.running = true
   }
 
@@ -91,12 +104,18 @@ Panel {
 
   Process {
     id: addProc
-    onExited: root.refresh()
+    onExited: {
+      root.adding = false
+      root.refresh()
+    }
   }
 
   Process {
     id: singleCheckProc
-    onExited: root.refresh()
+    onExited: {
+      root.checkingSiteId = ""
+      root.refresh()
+    }
   }
 
   Process {
@@ -122,10 +141,7 @@ Panel {
   Process {
     id: clearProc
     command: ["webstat", "clear"]
-    onExited: {
-      root.checkResult = null
-      root.refresh()
-    }
+    onExited: root.refresh()
   }
 
   KeyboardPanel {
@@ -180,7 +196,7 @@ Panel {
             spacing: Style.space(8)
 
             Button {
-              text: root.refreshing ? "Checking All…" : "↻ Refresh All"
+              text: root.refreshing ? "Refreshing…" : "↻ Refresh All"
               fontSize: Style.font.caption
               foreground: root.fg
               fontFamily: root.fontFamily
@@ -224,11 +240,12 @@ Panel {
 
             Button {
               id: addBtn
-              text: "Add"
+              text: root.adding ? "Adding…" : "Add"
               fontSize: Style.font.bodySmall
               foreground: "#38bdf8"
               fontFamily: root.fontFamily
               bordered: true
+              active: root.adding
               onClicked: root.addCurrentUrl()
             }
 
@@ -517,13 +534,14 @@ Panel {
                   spacing: Style.space(6)
 
                   Button {
-                    text: "Check"
+                    text: root.checkingSiteId === siteRow.modelData.id ? "…" : "Check"
                     fontSize: Style.font.caption
                     foreground: root.fg
                     fontFamily: root.fontFamily
                     bordered: true
+                    active: root.checkingSiteId === siteRow.modelData.id
                     tooltipText: "Re-check this site immediately"
-                    onClicked: root.checkSingleSite(siteRow.modelData.url)
+                    onClicked: root.checkSingleSite(siteRow.modelData.id, siteRow.modelData.url)
                   }
 
                   Button {

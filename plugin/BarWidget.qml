@@ -15,7 +15,7 @@ BarWidget {
   readonly property bool hasPending: pendingCount > 0
 
   function refresh() {
-    if (!listProc.running) listProc.running = true
+    stateFile.reload()
   }
 
   // Routing contract for Omarchy bar popouts
@@ -41,21 +41,14 @@ BarWidget {
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
 
-  Process {
-    id: listProc
-    command: ["webstat", "list", "--json"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.sites = Model.parseSites(text)
-    }
-  }
-
-  Timer {
-    interval: 8000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refresh()
+  // Instant reactive state reading via FileView and inotify (0ms latency, zero process spawning)
+  FileView {
+    id: stateFile
+    path: Quickshell.env("HOME") + "/.local/state/webstat/sites.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.sites = Model.parseSites(text())
+    onFileChanged: reload()
   }
 
   Loader {
