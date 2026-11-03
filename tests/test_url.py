@@ -27,3 +27,22 @@ def test_normalize_empty_fails():
 def test_get_display_name():
     assert get_display_name("https://github.com/torvalds/linux") == "github.com"
     assert get_display_name("http://localhost:8000/dashboard") == "localhost:8000"
+
+
+def test_normalize_rejects_unsupported_schemes():
+    with pytest.raises(ValueError, match="Unsupported URL scheme"):
+        normalize_url("file:///etc/passwd")
+
+    with pytest.raises(ValueError, match="Unsupported URL scheme"):
+        normalize_url("ftp://ftp.example.com/files")
+
+
+def test_normalize_strips_control_characters():
+    assert normalize_url("github.com\r\n") == "https://github.com"
+    assert normalize_url("\x1b[31mexample.com\x1b[0m") == "https://example.com"
+
+
+def test_get_display_name_redacts_credentials():
+    assert get_display_name("http://admin:secretPass123@api.internal:8080/v1") == "api.internal:8080"
+    assert get_display_name("https://token@github.com") == "github.com"
+

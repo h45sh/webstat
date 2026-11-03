@@ -42,13 +42,13 @@ Panel {
     }
     if (hostWidget) hostWidget.sites = filtered
 
-    removeProc.command = ["webstat", "remove", targetId]
+    removeProc.command = ["webstat", "remove", "--", targetId]
     removeProc.running = true
   }
 
   function checkSingleSite(siteId, url) {
     root.checkingSiteId = siteId
-    singleCheckProc.command = ["webstat", "check", url]
+    singleCheckProc.command = ["webstat", "check", "--", url]
     singleCheckProc.running = true
   }
 
@@ -56,9 +56,11 @@ Panel {
     var raw = String(urlField.text || "").trim()
     if (!raw) return
     root.adding = true
-    var args = ["webstat", "add", raw]
+    var args = ["webstat", "add"]
     if (autoOpenSwitch.checked) args.push("--open")
     if (keepWatchingSwitch.checked) args.push("--keep")
+    args.push("--")
+    args.push(raw)
     addProc.command = args
     addProc.running = true
     urlField.text = ""
@@ -69,7 +71,7 @@ Panel {
     if (!raw) return
     root.checking = true
     root.checkResult = null
-    checkProc.command = ["webstat", "check", raw, "--json"]
+    checkProc.command = ["webstat", "check", "--json", "--", raw]
     checkProc.running = true
   }
 
@@ -384,14 +386,14 @@ Panel {
                   fontFamily: root.fontFamily
                   bordered: true
                   onClicked: {
-                    if (root.checkResult) {
-                      var args = ["webstat", "add", root.checkResult.url]
+                      var args = ["webstat", "add"]
                       if (autoOpenSwitch.checked) args.push("--open")
                       if (keepWatchingSwitch.checked) args.push("--keep")
+                      args.push("--")
+                      args.push(root.checkResult.url)
                       addProc.command = args
                       addProc.running = true
                       root.checkResult = null
-                    }
                   }
                 }
                 Button {

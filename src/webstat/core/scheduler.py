@@ -23,6 +23,7 @@ class WatchScheduler:
         poll_interval: float = 5.0,
         max_interval: float = 60.0,
         adaptive_backoff: bool = True,
+        notification_cooldown: float = 60.0,
     ):
         self.store = store or SiteStore()
         self.dispatcher = dispatcher or NotificationDispatcher()
@@ -30,6 +31,7 @@ class WatchScheduler:
         self.poll_interval = poll_interval
         self.max_interval = max_interval
         self.adaptive_backoff = adaptive_backoff
+        self.notification_cooldown = notification_cooldown
         self._running = False
 
     def compute_delay(self, retries: int) -> float:
@@ -54,10 +56,14 @@ class WatchScheduler:
         site.last_error = result.error_message
 
         just_recovered = False
+        now = time.time()
         if result.is_up:
             if was_down or site.retries > 0:
-                just_recovered = True
-                self.dispatcher.dispatch_site_up(site, result)
+                # Enforce cooldown window to debounce flapping endpoints and prevent browser/notification floods
+                if site.last_notified_at is None or (now - site.last_notified_at) >= self.notification_cooldown:
+                    just_recovered = True
+                    site.last_notified_at = now
+                    self.dispatcher.dispatch_site_up(site, result)
             site.retries = 0
         else:
             site.retries += 1

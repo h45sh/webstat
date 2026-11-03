@@ -47,6 +47,7 @@ def check_command(
         help="Automatically open website in default browser when reachable",
     ),
     timeout: float = typer.Option(8.0, "--timeout", "-t", help="HTTP timeout in seconds"),
+    check_ssl: bool = typer.Option(False, "--check-ssl", "-s", help="Check TLS/SSL certificate expiration days"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON"),
 ) -> None:
     """Check the status of a website immediately."""
@@ -56,7 +57,7 @@ def check_command(
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)
 
-    checker = HttpChecker(timeout=timeout)
+    checker = HttpChecker(timeout=timeout, check_ssl=check_ssl)
 
     with console.status(f"[cyan]Checking[/cyan] {normalized}...", spinner="dots"):
         result = asyncio.run(checker.check(normalized))
@@ -331,7 +332,13 @@ def refresh_command() -> None:
     scheduler = WatchScheduler(store=store, dispatcher=dispatcher, checker=checker)
 
     async def run_all():
-        tasks = [scheduler.check_and_update(s) for s in sites]
+        sem = asyncio.Semaphore(10)
+
+        async def bounded_check(s):
+            async with sem:
+                return await scheduler.check_and_update(s)
+
+        tasks = [bounded_check(s) for s in sites]
         await asyncio.gather(*tasks)
 
     asyncio.run(run_all())

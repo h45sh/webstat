@@ -60,6 +60,7 @@ class MonitoredSite:
     retries: int = 0
     last_error: str | None = None
     created_at: float = field(default_factory=time.time)
+    last_notified_at: float | None = None
 
     @property
     def is_up(self) -> bool:
@@ -81,6 +82,7 @@ class MonitoredSite:
             "retries": self.retries,
             "last_error": self.last_error,
             "created_at": self.created_at,
+            "last_notified_at": self.last_notified_at,
             "is_up": self.is_up,
         }
 
@@ -107,4 +109,5 @@ class MonitoredSite:
             retries=data.get("retries", 0),
             last_error=data.get("last_error"),
             created_at=data.get("created_at", time.time()),
+            last_notified_at=data.get("last_notified_at"),
         )

@@ -30,13 +30,10 @@ pip install -e .
 
 ### Omarchy Shell Plugin Installation
 ```bash
-# Validate the plugin folder
-omarchy plugin validate plugin/
-
 # Add and enable the plugin in Omarchy
-omarchy plugin add https://github.com/h45sh/webstat.git --enable
+omarchy plugin add https://github.com/h45sh/omarchy-webstat.git --enable
 ```
-Or for local development:
+Or for local development from this monorepo:
 ```bash
 cp -r plugin ~/.config/omarchy/plugins/h45sh.webstat
 omarchy plugin enable h45sh.webstat

@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import abc
+import re
 import shutil
 import subprocess
 import sys
 from typing import Any
 
 from webstat.core.models import CheckResult, MonitoredSite
+
+
+def _clean_notification_text(text: str) -> str:
+    """Sanitize notification text by stripping control characters and carriage returns/newlines."""
+    cleaned = text.replace("\r", " ").replace("\n", " ")
+    return re.sub(r"[\x00-\x1f\x7f-\x9f]", "", cleaned).strip()
 
 
 class BaseNotifier(abc.ABC):
@@ -33,10 +40,10 @@ class OmarchyNotifier(BaseNotifier):
         if not self.is_available():
             return False
 
-        headline = f"Site is UP: {site.display_name}"
+        headline = _clean_notification_text(f"Site is UP: {site.display_name}")
         latency_str = f" in {result.latency_ms}ms" if result.latency_ms else ""
         code_str = f"{result.status_code} " if result.status_code else ""
-        desc = f"{site.url} is back online ({code_str}OK{latency_str}). Click to open."
+        desc = _clean_notification_text(f"{site.url} is back online ({code_str}OK{latency_str}). Click to open.")
 
         cmd = [
             self.omarchy_bin,
@@ -75,8 +82,8 @@ class FreeDesktopNotifier(BaseNotifier):
         if not self.is_available():
             return False
 
-        headline = f"Site is UP: {site.display_name}"
-        desc = f"{site.url} is back online!"
+        headline = _clean_notification_text(f"Site is UP: {site.display_name}")
+        desc = _clean_notification_text(f"{site.url} is back online!")
         cmd = [self.notify_bin, "-a", "webstat", "-i", "network-idle", headline, desc]
 
         try:

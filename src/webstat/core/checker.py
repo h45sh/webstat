@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import datetime
 import socket
 import ssl
 import time
@@ -45,24 +46,34 @@ class HttpChecker(BaseChecker):
             async with httpx.AsyncClient(
                 timeout=self.timeout,
                 follow_redirects=True,
+                max_redirects=10,
                 headers=headers,
                 verify=True,
             ) as client:
                 # Try fast HEAD probe first to avoid downloading large bodies
+                status_code: int
+                used_stream = False
                 try:
-                    response = await client.head(normalized)
-                    if response.status_code in (405, 501):
-                        response = await client.get(normalized)
+                    head_response = await client.head(normalized)
+                    if head_response.status_code in (405, 501):
+                        used_stream = True
+                    else:
+                        status_code = head_response.status_code
+                        if head_response.history:
+                            for resp in head_response.history:
+                                redirect_chain.append(f"{resp.status_code} -> {resp.url}")
                 except (httpx.RequestError, httpx.HTTPStatusError):
-                    response = await client.get(normalized)
+                    used_stream = True
+
+                if used_stream:
+                    # Stream GET to avoid buffering unbounded response bodies into RAM
+                    async with client.stream("GET", normalized) as stream_resp:
+                        status_code = stream_resp.status_code
+                        if stream_resp.history:
+                            for resp in stream_resp.history:
+                                redirect_chain.append(f"{resp.status_code} -> {resp.url}")
 
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
-
-                if response.history:
-                    for resp in response.history:
-                        redirect_chain.append(f"{resp.status_code} -> {resp.url}")
-
-                status_code = response.status_code
 
                 if 200 <= status_code < 300:
                     status = SiteStatus.ONLINE
@@ -150,8 +161,11 @@ class HttpChecker(BaseChecker):
                     if not cert or "notAfter" not in cert:
                         return None
                     # notAfter example: 'May 15 12:00:00 2026 GMT'
-                    expiry_time = ssl.cert_time_to_seconds(cert["notAfter"])
-                    remaining_seconds = expiry_time - time.time()
+                    expiry_dt = datetime.datetime.strptime(
+                        cert["notAfter"], "%b %d %H:%M:%S %Y %Z"
+                    ).replace(tzinfo=datetime.timezone.utc)
+                    now_dt = datetime.datetime.now(datetime.timezone.utc)
+                    remaining_seconds = (expiry_dt - now_dt).total_seconds()
                     return max(0, int(remaining_seconds // 86400))
         except Exception:
             return None
