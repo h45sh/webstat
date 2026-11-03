@@ -1,0 +1,26 @@
+# Maintainer: harsh <https://github.com/h45sh>
+pkgname=webstat
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Fast website status checker, recovery watcher, and desktop reminder"
+arch=('any')
+url="https://github.com/h45sh/webstat"
+license=('MIT')
+depends=('python' 'python-httpx' 'python-rich' 'python-typer')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/h45sh/webstat/archive/refs/tags/v$pkgver.tar.gz")
+# Run 'updpkgsums' to generate verifiable sha256sums once v0.1.0 release is tagged on GitHub
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  rm -rf dist
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

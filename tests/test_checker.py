@@ -85,3 +85,26 @@ def test_scheduler_flapping_cooldown(tmp_path):
     assert just_recovered3 is True
     assert len(dispatcher.dispatched) == 2
 
+
+def test_cli_parameter_validations():
+    from typer.testing import CliRunner
+    from webstat.cli import app
+
+    runner = CliRunner()
+
+    # Negative timeout
+    res_timeout = runner.invoke(app, ["check", "github.com", "--timeout", "-1"])
+    assert res_timeout.exit_code != 0
+    assert "Timeout must be greater than 0" in res_timeout.output
+
+    # Sub-minimum watch interval
+    res_watch = runner.invoke(app, ["watch", "github.com", "--interval", "0.1"])
+    assert res_watch.exit_code != 0
+    assert "Polling interval must be at least 0.5" in res_watch.output
+
+    # Sub-minimum daemon interval
+    res_daemon = runner.invoke(app, ["daemon", "--interval", "0.2"])
+    assert res_daemon.exit_code != 0
+    assert "Daemon polling interval must be at least 1.0" in res_daemon.output
+
+

@@ -12,15 +12,37 @@ authors = [
     { name = "h45sh" }
 ]
 license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["website", "uptime", "status", "monitoring", "cli", "desktop-widget", "omarchy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Site Verification",
+    "Topic :: System :: Monitoring",
+]
 dependencies = [
     "httpx>=0.25.0",
     "rich>=13.0.0",
     "typer>=0.9.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/h45sh/webstat"
+Repository = "https://github.com/h45sh/webstat"
+Issues = "https://github.com/h45sh/webstat/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
 
 [project.scripts]

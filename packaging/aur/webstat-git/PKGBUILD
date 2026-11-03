@@ -1,0 +1,34 @@
+# Maintainer: harsh <https://github.com/h45sh>
+pkgname=webstat-git
+_pkgname=webstat
+pkgver=0.1.0.r0.gabcdef
+pkgrel=1
+pkgdesc="Fast website status checker, recovery watcher, and desktop reminder"
+arch=('any')
+url="https://github.com/h45sh/webstat"
+license=('MIT')
+depends=('python' 'python-httpx' 'python-rich' 'python-typer')
+makedepends=('git' 'python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("git+https://github.com/h45sh/webstat.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+  git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' ||
+  printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cd "$_pkgname"
+  rm -rf dist
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$_pkgname"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

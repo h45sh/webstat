@@ -24,6 +24,13 @@ Panel {
   property bool adding: false
   property bool refreshing: false
   property string checkingSiteId: ""
+  property bool cliInstalled: true
+  property bool cliChecking: false
+
+  function checkCli() {
+    root.cliChecking = true
+    whichProc.running = true
+  }
 
   function refresh() {
     if (hostWidget && hostWidget.refresh) hostWidget.refresh()
@@ -87,6 +94,7 @@ Panel {
   }
 
   function open() {
+    checkCli()
     refresh()
     root.controller.show()
   }
@@ -95,6 +103,17 @@ Panel {
     if (root.bar && typeof root.bar.switchPanelFrom === "function")
       return root.bar.switchPanelFrom(root.barIdentity, direction)
     return false
+  }
+
+  Component.onCompleted: root.checkCli()
+
+  Process {
+    id: whichProc
+    command: ["which", "webstat"]
+    onExited: function(exitCode) {
+      root.cliInstalled = (exitCode === 0)
+      root.cliChecking = false
+    }
   }
 
   Process { id: openProc }
@@ -203,6 +222,8 @@ Panel {
               foreground: root.fg
               fontFamily: root.fontFamily
               bordered: true
+              enabled: root.cliInstalled
+              opacity: root.cliInstalled ? 1.0 : 0.6
               active: root.refreshing
               onClicked: root.refreshAll()
             }
@@ -214,7 +235,70 @@ Panel {
               fontFamily: root.fontFamily
               bordered: true
               visible: root.sites.length > 0
+              enabled: root.cliInstalled
+              opacity: root.cliInstalled ? 1.0 : 0.6
               onClicked: root.clearWatchlist()
+            }
+          }
+
+          // Engine Missing Warning Banner
+          BorderSurface {
+            visible: !root.cliInstalled
+            width: parent.width
+            color: Style.controlFill(false, false, root.fg, Color.accent)
+            radius: Style.cornerRadius
+            borderSpec: Border.controlSpec("normal", "#f59e0b", Color.accent)
+            implicitHeight: cliWarningCol.implicitHeight + Style.space(20)
+
+            Column {
+              id: cliWarningCol
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.margins: Style.space(10)
+              spacing: Style.space(8)
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+                Text {
+                  textFormat: Text.PlainText
+                  text: "⚠️"
+                  font.pixelSize: Style.font.body
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: "webstat CLI Engine Not Found"
+                  color: "#f59e0b"
+                  font.bold: true
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+                }
+              }
+
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                textFormat: Text.PlainText
+                text: "Install the background engine to start monitoring sites from this widget:\n\n  • pipx install webstat  (or pip install webstat)\n  • yay -S webstat-git  (AUR)"
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                opacity: 0.95
+              }
+
+              Row {
+                spacing: Style.space(8)
+                Button {
+                  text: root.cliChecking ? "Checking…" : "↻ Check Again"
+                  fontSize: Style.font.caption
+                  foreground: "#38bdf8"
+                  fontFamily: root.fontFamily
+                  bordered: true
+                  active: root.cliChecking
+                  onClicked: root.checkCli()
+                }
+              }
             }
           }
 
@@ -235,8 +319,10 @@ Panel {
             TextField {
               id: urlField
               width: parent.width - addBtn.width - checkBtn.width - Style.space(16)
-              placeholderText: "Enter website or domain (e.g. github.com)…"
+              placeholderText: root.cliInstalled ? "Enter website or domain (e.g. github.com)…" : "Install webstat engine to add sites…"
               foreground: root.fg
+              enabled: root.cliInstalled
+              opacity: root.cliInstalled ? 1.0 : 0.6
               onAccepted: root.addCurrentUrl()
             }
 
@@ -244,9 +330,11 @@ Panel {
               id: addBtn
               text: root.adding ? "Adding…" : "Add"
               fontSize: Style.font.bodySmall
-              foreground: "#38bdf8"
+              foreground: root.cliInstalled ? "#38bdf8" : root.fg
               fontFamily: root.fontFamily
               bordered: true
+              enabled: root.cliInstalled
+              opacity: root.cliInstalled ? 1.0 : 0.6
               active: root.adding
               onClicked: root.addCurrentUrl()
             }
@@ -258,6 +346,8 @@ Panel {
               foreground: root.fg
               fontFamily: root.fontFamily
               bordered: true
+              enabled: root.cliInstalled
+              opacity: root.cliInstalled ? 1.0 : 0.6
               active: root.checking
               onClicked: root.checkCurrentUrl()
             }

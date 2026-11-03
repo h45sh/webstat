@@ -17,15 +17,20 @@ Fast website status checker, recovery watcher, and desktop reminder for Linux an
 ## Installation
 
 ### CLI Installation
+
 ```bash
-# Clone the repository
+# Recommended: Install from PyPI via pipx
+pipx install webstat
+# or standard pip:
+pip install webstat
+
+# Arch Linux / Omarchy (AUR):
+yay -S webstat-git
+
+# Or install from source:
 git clone https://github.com/h45sh/webstat.git
 cd webstat
-
-# Set up virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+pip install .
 ```
 
 ### Omarchy Shell Plugin Installation

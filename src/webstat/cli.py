@@ -51,6 +51,10 @@ def check_command(
     json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON"),
 ) -> None:
     """Check the status of a website immediately."""
+    if timeout <= 0:
+        console.print("[bold red]Error:[/bold red] Timeout must be greater than 0.")
+        raise typer.Exit(code=1)
+
     try:
         normalized = normalize_url(url)
     except Exception as e:
@@ -155,6 +159,10 @@ def watch_command(
     ),
 ) -> None:
     """Watch one or more websites and alert you with desktop notification when they are UP."""
+    if interval < 0.5:
+        console.print("[bold red]Error:[/bold red] Polling interval must be at least 0.5 seconds.")
+        raise typer.Exit(code=1)
+
     run_watch_loop(
         urls=urls,
         auto_open=open_browser,
@@ -350,6 +358,10 @@ def daemon_command(
     interval: float = typer.Option(10.0, "--interval", "-i", help="Polling interval in seconds"),
 ) -> None:
     """Run the continuous background monitoring daemon."""
+    if interval < 1.0:
+        console.print("[bold red]Error:[/bold red] Daemon polling interval must be at least 1.0 second.")
+        raise typer.Exit(code=1)
+
     store = SiteStore()
     dispatcher = NotificationDispatcher()
     checker = HttpChecker()
