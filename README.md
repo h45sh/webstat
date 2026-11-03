@@ -1,6 +1,12 @@
 # webstat
 
+[![PyPI version](https://img.shields.io/pypi/v/webstat.svg)](https://pypi.org/project/webstat/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Fast website status checker, recovery watcher, and desktop reminder for Linux and Omarchy.
+
+![Webstat Preview](assets/marketplace-preview.png)
 
 `webstat` is designed to solve a simple, frustrating problem: a website or service you are trying to use is down or failing to respond, and you don't want to keep pressing `F5` / `Ctrl+R` manually. You enter the site name; `webstat` checks its status immediately, monitors it in the background if it's down, and reminds you the instant it comes back online with an actionable desktop notification and automatic browser launch.
 
@@ -69,8 +75,17 @@ webstat add api.myservice.com --open
 # View current status of all monitored sites
 webstat list
 
+# Refresh and test all watched sites immediately
+webstat refresh
+
 # Remove a site
 webstat remove api.myservice.com
+
+# Clear all watched sites
+webstat clear
+
+# Run background watcher daemon directly
+webstat daemon
 ```
 
 ## License
