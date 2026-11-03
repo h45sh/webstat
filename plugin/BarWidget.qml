@@ -51,7 +51,7 @@ BarWidget {
   }
 
   Timer {
-    interval: 10000
+    interval: 8000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -76,6 +76,8 @@ BarWidget {
     text: root.vertical ? root.icon : (root.hasPending ? root.icon + " " + root.pendingCount : root.icon)
     fontSize: root.vertical ? Style.bar.iconFont : Style.font.body
     active: root.hasPending
+    activeColor: "#ef4444"
+    foreground: root.hasPending ? "#ef4444" : (root.bar ? root.bar.barForeground : Color.foreground)
     tooltipText: root.sites.length === 0
       ? "Webstat: No sites monitored"
       : (root.hasPending

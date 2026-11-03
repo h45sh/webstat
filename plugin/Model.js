@@ -12,6 +12,16 @@ function parseSites(text) {
   return []
 }
 
+function parseCheckResult(text) {
+  try {
+    var data = JSON.parse(String(text || "").trim())
+    if (data && typeof data === "object" && data.url) {
+      return data
+    }
+  } catch (e) {}
+  return null
+}
+
 function countPending(sites) {
   if (!Array.isArray(sites)) return 0
   var count = 0
@@ -28,11 +38,22 @@ function formatLatency(ms) {
   return Math.round(ms) + " ms"
 }
 
-function statusBadge(status) {
-  if (status === "ONLINE") return "● ONLINE"
-  if (status === "REDIRECT") return "↗ REDIRECT"
-  if (status === "CLIENT_ERROR") return "▲ CLIENT ERR"
-  if (status === "SERVER_ERROR") return "✖ SERVER ERR"
-  if (status === "UNREACHABLE") return "✖ DOWN"
+// High-contrast, theme-agnostic vibrant colors for status visibility
+function statusColor(status, isUp) {
+  if (status === "ONLINE" || isUp) return "#4ade80" // Bright emerald green
+  if (status === "REDIRECT") return "#38bdf8" // Bright sky blue
+  if (status === "CLIENT_ERROR") return "#fbbf24" // Bright amber
+  if (status === "SERVER_ERROR") return "#f87171" // Bright coral red
+  if (status === "UNREACHABLE") return "#ef4444" // Vivid red
+  return "#94a3b8" // Slate gray
+}
+
+function statusBadge(status, code) {
+  var codeStr = code ? " (" + code + ")" : ""
+  if (status === "ONLINE") return "● ONLINE" + codeStr
+  if (status === "REDIRECT") return "↗ REDIRECT" + codeStr
+  if (status === "CLIENT_ERROR") return "▲ CLIENT ERROR" + codeStr
+  if (status === "SERVER_ERROR") return "✖ SERVER ERROR" + codeStr
+  if (status === "UNREACHABLE") return "✖ UNREACHABLE"
   return "? PENDING"
 }

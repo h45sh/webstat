@@ -294,6 +294,26 @@ def clear_command() -> None:
     console.print("[bold green]Watchlist cleared.[/bold green]")
 
 
+@app.command(name="refresh")
+def refresh_command() -> None:
+    """Check all monitored websites immediately and update their status."""
+    store = SiteStore()
+    sites = store.load_all()
+    if not sites:
+        console.print("[dim]No websites in watchlist.[/dim]")
+        return
+    dispatcher = NotificationDispatcher()
+    checker = HttpChecker()
+    scheduler = WatchScheduler(store=store, dispatcher=dispatcher, checker=checker)
+
+    async def run_all():
+        tasks = [scheduler.check_and_update(s) for s in sites]
+        await asyncio.gather(*tasks)
+
+    asyncio.run(run_all())
+    console.print(f"[bold green]Refreshed {len(sites)} website(s).[/bold green]")
+
+
 @app.command(name="daemon")
 def daemon_command(
     interval: float = typer.Option(10.0, "--interval", "-i", help="Polling interval in seconds"),
@@ -324,7 +344,7 @@ def daemon_command(
         console.print("\n[yellow]webstat daemon stopped.[/yellow]")
 
 
-KNOWN_COMMANDS = {"check", "watch", "add", "list", "remove", "clear", "daemon"}
+KNOWN_COMMANDS = {"check", "watch", "add", "list", "remove", "clear", "refresh", "daemon"}
 
 
 @app.callback()
