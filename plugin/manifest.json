@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "h45sh.webstat",
   "name": "Webstat",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "author": "h45sh",
   "license": "MIT",
   "description": "Website availability monitor and recovery reminder",

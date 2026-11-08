@@ -58,7 +58,9 @@ def open_in_browser(url: str, display_name: Optional[str] = None) -> bool:
     if not launcher_bin:
         return False
 
-    label = display_name or url
+    from webstat.utils.url import get_display_name
+
+    label = display_name or get_display_name(url)
     launcher_dir = os.path.expanduser("~/.local/state/webstat/open")
     try:
         os.makedirs(launcher_dir, mode=0o700, exist_ok=True)

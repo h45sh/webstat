@@ -13,6 +13,7 @@ BarWidget {
   property var sites: []
   readonly property int pendingCount: Model.countPending(sites)
   readonly property bool hasPending: pendingCount > 0
+  readonly property bool engineMissing: panelLoader.item ? (!panelLoader.item.cliInstalled && !panelLoader.item.cliChecking) : false
 
   function refresh() {
     stateFile.reload()
@@ -68,14 +69,16 @@ BarWidget {
     bar: root.bar
     text: root.vertical ? root.icon : (root.hasPending ? root.icon + " " + root.pendingCount : root.icon)
     fontSize: root.vertical ? Style.bar.iconFont : Style.font.body
-    active: root.hasPending
-    activeColor: "#ef4444"
-    foreground: root.hasPending ? "#ef4444" : (root.bar ? root.bar.barForeground : Color.foreground)
-    tooltipText: root.sites.length === 0
-      ? "Webstat: No sites monitored"
-      : (root.hasPending
-          ? "Webstat: " + root.pendingCount + " site(s) offline / waiting"
-          : "Webstat: All " + root.sites.length + " site(s) online")
+    active: root.hasPending || root.engineMissing
+    activeColor: root.hasPending ? "#ef4444" : "#f59e0b"
+    foreground: root.hasPending ? "#ef4444" : (root.engineMissing ? "#f59e0b" : (root.bar ? root.bar.barForeground : Color.foreground))
+    tooltipText: root.engineMissing
+      ? "Webstat: CLI engine not found (click to check)"
+      : (root.sites.length === 0
+          ? "Webstat: No sites monitored"
+          : (root.hasPending
+              ? "Webstat: " + root.pendingCount + " site(s) offline / waiting"
+              : "Webstat: All " + root.sites.length + " site(s) online"))
     onPressed: function(b) {
       if (panelLoader.item) panelLoader.item.toggle()
     }

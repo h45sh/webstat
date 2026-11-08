@@ -57,6 +57,12 @@ def get_display_name(url: str) -> str:
             host = f"{host}:{parsed.port}"
         # Strip any ANSI escape sequences or control characters
         host = _strip_ansi_and_control(host)
-        return host or _strip_ansi_and_control(url)
+        if host:
+            return host
+        if parsed.netloc:
+            safe_netloc = parsed.netloc.split("@")[-1]
+            return _strip_ansi_and_control(safe_netloc) or "website"
+        return "website"
     except Exception:
-        return _strip_ansi_and_control(url)
+        sanitized = _strip_ansi_and_control(url).split("@")[-1]
+        return sanitized or "website"
