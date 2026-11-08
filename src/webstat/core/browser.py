@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -12,14 +13,18 @@ from typing import Optional
 
 
 def _cleanup_old_launchers(launcher_dir: str, max_age_seconds: float = 60.0) -> None:
-    """Remove any stale trampoline HTML files older than max_age_seconds."""
+    """Remove any stale trampoline HTML files older than max_age_seconds owned by current user."""
     try:
         now = time.time()
+        current_uid = os.getuid() if hasattr(os, "getuid") else None
         for fname in os.listdir(launcher_dir):
             if fname.startswith("open_") and fname.endswith(".html"):
                 fpath = os.path.join(launcher_dir, fname)
                 try:
-                    if now - os.path.getmtime(fpath) > max_age_seconds:
+                    st = os.stat(fpath)
+                    if current_uid is not None and st.st_uid != current_uid:
+                        continue
+                    if now - st.st_mtime > max_age_seconds:
                         os.unlink(fpath)
                 except OSError:
                     pass
@@ -28,17 +33,33 @@ def _cleanup_old_launchers(launcher_dir: str, max_age_seconds: float = 60.0) -> 
 
 
 def _schedule_file_cleanup(fpath: str, delay_seconds: float = 30.0) -> None:
-    """Schedule asynchronous deletion of the temporary trampoline file."""
-    def _remover():
-        time.sleep(delay_seconds)
-        try:
-            if os.path.exists(fpath):
-                os.unlink(fpath)
-        except OSError:
-            pass
+    """Schedule detached asynchronous deletion of the temporary trampoline file."""
+    try:
+        code = (
+            "import time, os, sys\n"
+            "time.sleep(float(sys.argv[1]))\n"
+            "try:\n"
+            "    os.unlink(sys.argv[2])\n"
+            "except OSError:\n"
+            "    pass\n"
+        )
+        subprocess.Popen(
+            [sys.executable, "-c", code, str(delay_seconds), fpath],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        def _remover():
+            time.sleep(delay_seconds)
+            try:
+                if os.path.exists(fpath):
+                    os.unlink(fpath)
+            except OSError:
+                pass
 
-    t = threading.Thread(target=_remover, daemon=True)
-    t.start()
+        t = threading.Thread(target=_remover, daemon=True)
+        t.start()
 
 
 def open_in_browser(url: str, display_name: Optional[str] = None) -> bool:
@@ -66,13 +87,19 @@ def open_in_browser(url: str, display_name: Optional[str] = None) -> bool:
         os.makedirs(launcher_dir, mode=0o700, exist_ok=True)
         os.chmod(launcher_dir, 0o700)
     except OSError:
-        launcher_dir = tempfile.gettempdir()
+        uid_tag = str(os.getuid()) if hasattr(os, "getuid") else "user"
+        launcher_dir = os.path.join(tempfile.gettempdir(), f"webstat-{uid_tag}-open")
+        try:
+            os.makedirs(launcher_dir, mode=0o700, exist_ok=True)
+            os.chmod(launcher_dir, 0o700)
+        except OSError:
+            launcher_dir = tempfile.gettempdir()
 
     _cleanup_old_launchers(launcher_dir)
 
     escaped_url = html.escape(url, quote=True)
     escaped_label = html.escape(label)
-    json_url = json.dumps(url)
+    json_url = json.dumps(url).replace("<", "\\u003c").replace(">", "\\u003e")
 
     html_content = f"""<!DOCTYPE html>
 <html>

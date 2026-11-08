@@ -1,6 +1,9 @@
 """Security-focused unit tests for webstat."""
 
 import asyncio
+import os
+import sys
+import time
 from unittest.mock import patch, MagicMock
 import httpx
 import pytest
@@ -213,7 +216,7 @@ def test_browser_launcher_never_exposes_credentials_in_args(tmp_path):
         assert success is True
         assert mock_popen.called
 
-        cmd_args = mock_popen.call_args[0][0]
+        cmd_args = mock_popen.call_args_list[0][0][0]
         assert cmd_args[0] == "/usr/bin/xdg-open"
         assert len(cmd_args) == 2
 
@@ -246,3 +249,68 @@ def test_browser_launcher_never_exposes_credentials_in_args(tmp_path):
             os.unlink(trampoline_path)
         except OSError:
             pass
+
+
+def test_open_in_browser_escapes_script_tags(tmp_path):
+    """Verify that open_in_browser escapes script end tags so that attacker-controlled
+    URLs cannot break out of inline <script> blocks.
+    """
+    from webstat.core.browser import open_in_browser
+
+    xss_url = "https://example.com/test?</script><script>alert('XSS')</script>"
+    with patch("shutil.which", return_value="/usr/bin/xdg-open"), \
+         patch("subprocess.Popen") as mock_popen, \
+         patch("os.path.expanduser", return_value=str(tmp_path / "open")):
+
+        success = open_in_browser(xss_url, "XSS Test")
+        assert success is True
+        assert mock_popen.called
+
+        # Get the trampoline file path from the xdg-open invocation
+        trampoline_path = mock_popen.call_args_list[0][0][0][1]
+        assert os.path.exists(trampoline_path)
+
+        with open(trampoline_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Raw </script> must not appear within the script block
+        # Instead, it should be escaped as \u003c/script\u003e
+        assert "\\u003c/script\\u003e" in content
+        # Verify there are no extra unescaped </script> tags before the final closing tag
+        script_parts = content.split("<script>")
+        assert len(script_parts) == 2
+        script_body = script_parts[1].split("</script>")[0]
+        assert "</script" not in script_body
+
+
+def test_cleanup_old_launchers_respects_file_ownership(tmp_path):
+    """Verify that _cleanup_old_launchers does not unlink files owned by a different UID."""
+    from webstat.core.browser import _cleanup_old_launchers
+
+    test_file = tmp_path / "open_otheruser.html"
+    test_file.write_text("dummy")
+
+    # Set mock stat returning a different UID and old timestamp
+    mock_stat = MagicMock()
+    mock_stat.st_uid = 99999  # Different from current user
+    mock_stat.st_mtime = time.time() - 100.0
+
+    with patch("os.stat", return_value=mock_stat), \
+         patch("os.unlink") as mock_unlink:
+        _cleanup_old_launchers(str(tmp_path), max_age_seconds=60.0)
+        assert not mock_unlink.called
+
+
+def test_schedule_file_cleanup_spawns_detached_process():
+    """Verify that _schedule_file_cleanup spawns a detached subprocess with start_new_session=True."""
+    from webstat.core.browser import _schedule_file_cleanup
+
+    with patch("subprocess.Popen") as mock_popen:
+        _schedule_file_cleanup("/tmp/dummy_open.html", delay_seconds=10.0)
+        assert mock_popen.called
+        kwargs = mock_popen.call_args[1]
+        assert kwargs.get("start_new_session") is True
+        cmd = mock_popen.call_args[0][0]
+        assert cmd[0] == sys.executable
+        assert cmd[1] == "-c"
+
