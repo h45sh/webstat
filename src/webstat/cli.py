@@ -138,8 +138,9 @@ def check_command(
 
     if result.is_up:
         if open_browser:
-            import webbrowser
-            webbrowser.open(normalized)
+            from webstat.core.browser import open_in_browser
+
+            open_in_browser(normalized, get_display_name(normalized))
         return
 
     # Site is down or non-positive

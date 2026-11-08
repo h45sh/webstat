@@ -171,6 +171,15 @@ def test_cli_stdin_and_id_options(tmp_path):
             assert mock_open.called
             assert mock_open.call_args[0][0] == site.url
 
+        # 5. Check site with --open (verifying open_in_browser is called instead of webbrowser)
+        with patch.object(HttpChecker, "check", side_effect=fake_check_id), \
+             patch("webstat.core.browser.open_in_browser") as mock_check_open:
+            mock_check_open.return_value = True
+            res_check_open = runner.invoke(app, ["check", "--id", site.id, "--open"])
+            assert res_check_open.exit_code == 0
+            assert mock_check_open.called
+            assert mock_check_open.call_args[0][0] == site.url
+
 
 def test_browser_launcher_never_exposes_credentials_in_args(tmp_path):
     """Verify that BrowserLauncher and open_in_browser write a private 0600 trampoline
