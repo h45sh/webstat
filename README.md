@@ -6,7 +6,7 @@
 
 Fast website status checker, recovery watcher, and desktop reminder for Linux and Omarchy.
 
-![Webstat Preview](assets/marketplace-preview.png)
+![webstat CLI Demo](assets/help.gif)
 
 `webstat` is designed to solve a simple, frustrating problem: a website or service you are trying to use is down or failing to respond, and you don't want to keep pressing `F5` / `Ctrl+R` manually. You enter the site name; `webstat` checks its status immediately, monitors it in the background if it's down, and reminds you the instant it comes back online with an actionable desktop notification and automatic browser launch.
 
@@ -37,6 +37,9 @@ pip install .
 ```
 
 ### Omarchy Shell Plugin Installation
+
+![Omarchy Shell Plugin Preview](assets/marketplace-preview.png)
+
 ```bash
 # Add and enable the plugin in Omarchy
 omarchy plugin add https://github.com/h45sh/omarchy-webstat.git --enable
@@ -48,8 +51,6 @@ omarchy plugin enable h45sh.webstat
 ```
 
 ## Usage
-
-![webstat CLI](assets/help.gif)
 
 ### Quick Status Check
 ```bash
