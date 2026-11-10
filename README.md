@@ -49,6 +49,8 @@ omarchy plugin enable h45sh.webstat
 
 ## Usage
 
+![webstat CLI](assets/help.gif)
+
 ### Quick Status Check
 ```bash
 webstat github.com
