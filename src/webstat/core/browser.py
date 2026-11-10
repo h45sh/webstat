@@ -3,6 +3,7 @@
 import html
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -75,11 +76,15 @@ def open_in_browser(url: str, display_name: Optional[str] = None) -> bool:
     if not url:
         return False
 
+    from webstat.utils.url import get_display_name, _strip_ansi_and_control
+
+    url = _strip_ansi_and_control(url)
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        return False
+
     launcher_bin = shutil.which("xdg-open") or shutil.which("gio")
     if not launcher_bin:
         return False
-
-    from webstat.utils.url import get_display_name
 
     label = display_name or get_display_name(url)
     launcher_dir = os.path.expanduser("~/.local/state/webstat/open")
@@ -99,12 +104,21 @@ def open_in_browser(url: str, display_name: Optional[str] = None) -> bool:
 
     escaped_url = html.escape(url, quote=True)
     escaped_label = html.escape(label)
-    json_url = json.dumps(url).replace("<", "\\u003c").replace(">", "\\u003e")
+    json_url = (
+        json.dumps(url)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <meta http-equiv="refresh" content="0; url={escaped_url}">
   <title>Opening {escaped_label}</title>
   <script>

@@ -314,3 +314,34 @@ def test_schedule_file_cleanup_spawns_detached_process():
         assert cmd[0] == sys.executable
         assert cmd[1] == "-c"
 
+
+def test_open_in_browser_rejects_non_http_schemes():
+    """Verify that open_in_browser rejects javascript:, file:, data:, and other non-http schemes."""
+    from webstat.core.browser import open_in_browser
+
+    assert open_in_browser("javascript:alert(1)") is False
+    assert open_in_browser("data:text/html,<script>alert(1)</script>") is False
+    assert open_in_browser("file:///etc/passwd") is False
+    assert open_in_browser("") is False
+
+
+def test_open_in_browser_includes_csp_and_no_referrer(tmp_path):
+    """Verify that open_in_browser trampoline includes CSP default-src 'none' and no-referrer."""
+    from webstat.core.browser import open_in_browser
+
+    with patch("shutil.which", return_value="/usr/bin/xdg-open"), \
+         patch("subprocess.Popen") as mock_popen, \
+         patch("os.path.expanduser", return_value=str(tmp_path / "open")):
+
+        success = open_in_browser("https://example.com/login", "Login")
+        assert success is True
+        assert mock_popen.called
+
+        trampoline_path = mock_popen.call_args_list[0][0][0][1]
+        with open(trampoline_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        assert 'name="referrer" content="no-referrer"' in content
+        assert "Content-Security-Policy" in content
+        assert "default-src 'none'" in content
+
