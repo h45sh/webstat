@@ -3,8 +3,11 @@
 [![PyPI version](https://img.shields.io/pypi/v/webstat.svg)](https://pypi.org/project/webstat/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Website](https://img.shields.io/badge/website-h45sh.com-informational)](https://h45sh.com/portfolio/webstat/)
 
 Fast website status checker, recovery watcher, and desktop reminder for Linux and Omarchy.
+
+🌐 **Website / Portfolio:** [https://h45sh.com/portfolio/webstat/](https://h45sh.com/portfolio/webstat/)
 
 ![webstat CLI Demo](assets/help.gif)
 
